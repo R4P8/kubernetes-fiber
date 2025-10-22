@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: go-fiber
+  labels:
+    app: otel-collector
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc
+      protocol: TCP
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      protocol: TCP
+      port: 4318
+      targetPort: 4318
+    - name: metrics
+      protocol: TCP
+      port: 8888
+      targetPort: 8888
+    - name: prome
+      protocol: TCP
+      port: 9464
+      targetPort: 9464
+  type: ClusterIP
+
