@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: otel-collector
-          image: otel/opentelemetry-collector-contrib:latest
+          image: otel/opentelemetry-collector-contrib:0.123.0
           args: ["--config=/etc/otelcol/config.yaml"]
           ports:
             - containerPort: 4317
@@ -31,7 +31,7 @@ spec:
           volumeMounts:
             - name: otel-config
               mountPath: /etc/otelcol/config.yaml
-              subPath: config.yaml
+              subPath: otel-config.yaml
       volumes:
         - name: otel-config
           configMap:
@@ -39,5 +39,5 @@ spec:
       initContainers:
         - name: wait-for-jaeger
           image: busybox
-          command: ['sh', '-c', 'until nc -z jaeger 14250; do echo "waiting for jaeger..."; sleep 3; done']
+          command: ['sh', '-c', 'until nc -z jaeger 4317; do echo "waiting for jaeger..."; sleep 3; done']
 
