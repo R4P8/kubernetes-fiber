@@ -1,12 +1,12 @@
-# 🚀 Go Fiber + PostgreSQL on Kubernetes
+# 🚀 Go Fiber + PostgreSQL + + Observability Stack on Kubernetes
 
-This project demonstrates a complete deployment of a **Go Fiber REST API** connected to a **PostgreSQL** database on **Kubernetes**.
+This project demonstrates a complete deployment of a **Go Fiber REST API** connected to a **PostgreSQL** and equipped with an observability stack **(OpenTelemetry Collector, Prometheus, Grafana, and Jaeger)**  on **Kubernetes**.  
 The setup uses `ConfigMap`, `Secret`, `Deployment`, `StatefulSet`, and `Service`, all managed via **Kustomize**.
 
 ---
 
 ## 🧱 Project Structure
-````
+```` 
 kubernetes/
 ├── go-fiber/
 │ ├── configmap.yaml
@@ -20,19 +20,50 @@ kubernetes/
 ├── secret.yaml
 ├── service.yaml
 └── statefulset.yaml
-````
+├── otel-collector/
+│   ├── configmap.yaml
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── kustomization.yaml
+├── prometheus/
+│   ├── configmap.yaml
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── kustomization.yaml
+└── jaeger/
+    ├── deployment.yaml
+    ├── service.yaml
+    └── kustomization.yaml
+```` 
 
 ## 🧩 Architecture Overview
 ````
-+-------------------+ +-------------------+
-| Go Fiber App | <----> | PostgreSQL DB |
-| (go-fiber-deploy) | | (statefulset) |
-| Port: 3000 | | Port: 5432 |
-+-------------------+ +-------------------+
-↑ ↑
-ConfigMap & Secret ConfigMap & Secret
-↓ ↓
-Environment Vars Environment Vars
+                               │
+                ┌──────────────┴──────────────┐
+                │        Prometheus           │
+                │  Scrape app & node metrics  │
+                └──────────────┬──────────────┘
+                               │
+                ┌──────────────┴──────────────┐
+                │   OpenTelemetry Collector   │
+                │ Collects + forwards traces  │
+                │   (to Jaeger) & metrics     │
+                └──────────────┬──────────────┘
+                               │
+                ┌──────────────┴──────────────┐
+                │           Jaeger            │
+                │  Trace backend (OTLP:4317)  │
+                └──────────────┬──────────────┘
+                               │
+                ┌──────────────┴──────────────┐
+                │         Go Fiber App        │
+                │ Exposes metrics & tracing   │
+                └──────────────┬──────────────┘
+                               │
+                ┌──────────────┴──────────────┐
+                │        PostgreSQL DB        │
+                └─────────────────────────────┘
+
 ````
 
 - The **Go Fiber** service (`go-fiber-http`) communicates internally with the **PostgreSQL** service (`postgres`) inside the `go-fiber` namespace.
@@ -55,16 +86,16 @@ Before deploying, ensure you have:
 ### 🐘 PostgreSQL (Database)
 Located in: `kubernetes/postgre/`
 
-- **ConfigMap** → database host & port
-- **Secret** → database username, password, and DB name
-- **StatefulSet** → PostgreSQL pod with persistent volume
-- **Service** → internal ClusterIP service
-- **Kustomization** → combines all manifests for easy apply/delete
+- **ConfigMap** → database host & port  
+- **Secret** → database username, password, and DB name  
+- **StatefulSet** → PostgreSQL pod with persistent volume  
+- **Service** → internal ClusterIP service  
+- **Kustomization** → combines all manifests for easy apply/delete  
 
 Example deployment command:
 ````
 kubectl apply -k kubernetes/postgre/
-````
+```` 
 ## ⚡ Go Fiber (Application)
 
 Located in: ```` kubernetes/go-fiber/````
@@ -84,6 +115,7 @@ Example deployment command:
 kubectl apply -k kubernetes/go-fiber/
 ```````
 ## 🚀 Deployment Guide
+
 **1. Start Minikube** 
 ````
 kubectl apply -k kubernetes/go-fiber/
@@ -104,10 +136,66 @@ kubectl get pods -n go-fiber
 ````
 kubectl apply -k kubernetes/go-fiber/
 ````
-**6. Verify All Resources**
+**6. Deploy OpenTelemetry Collector**
+````
+kubectl apply -k kubernetes/otel-collector/
+````
+**7. Deploy Jaeger**
+````
+kubectl apply -k kubernetes/jaeger/
+````
+
+**8. Verify All Resources**
 ````
 kubectl get all -n go-fiber
 ````
+
+## 📊 Observability Configuration
+#### 🟣 OpenTelemetry Collector
+* Receive traces from applications ````(otlp:4317)````
+
+* Sending trace to Jaeger ````(jaeger:4317)````
+
+* Exporting metrics to Prometheus ````(:9464)````
+
+#### 🔵 Prometheus
+````ConfigMap```` Example (````prometheus-config````):`
+````
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:9464']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+````
+Prometheus collects metrics from:
+* OpenTelemetry Collector (application Go Fiber)
+* Node Exporter (resource node cluster)
+* Herself
+
+#### 🟠 Jaeger
+* Jaeger UI is available on port 16686
+* Receive trace via OTLP port 4317 from OpenTelemetry Collector
+
+## 🌐 Port Summary
+
+| Component               | Port(s)          | Description                  |
+| ----------------------- | ---------------- | ---------------------------- |
+| Go Fiber App            | 3000             | REST API                     |
+| PostgreSQL              | 5432             | Database                     |
+| OpenTelemetry Collector | 4317, 4318, 9464 | OTLP (GRPC/HTTP), Prometheus |
+| Prometheus              | 9090             | Metrics visualization                       |
+| Jaeger                  | 16686, 4317      | Web UI, OTLP traces          |
+
 
 ## 🔍 Testing the Application
 **1. Port Forward the Go Fiber Service**
@@ -164,3 +252,5 @@ kubectl delete namespace go-fiber
 • The setup uses ClusterIP networking; for external access, use an Ingress or LoadBalancer type.
 
 • Ensure both app and database share the same namespace: go-fiber.
+
+
