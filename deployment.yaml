@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: go-fiber
-          image: rizqirafa8/go-fiber-example:latest
+          image: rizqirafa8/go-fiber-example-v2:latest
           imagePullPolicy: Always
           ports:
             - name: http
