@@ -8,3 +8,9 @@ resources:
   - secret.yaml
   - hpa.yaml
 
+
+  - ./postgre
+  - ./prome
+  - ./jaeger
+  - ./otel-collector
+  - ./grafana
