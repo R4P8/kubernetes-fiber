@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: go-fiber-config
+  name: config-go-fiber
   namespace: go-fiber
 data:
   DB_HOST: "postgres"
