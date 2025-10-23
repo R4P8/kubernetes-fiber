@@ -3,5 +3,4 @@ kind: Kustomization
 namespace: go-fiber
 resources:
   - deployment.yaml
-  - configmap.yaml
-  - secret.yaml
+  - service.yaml
